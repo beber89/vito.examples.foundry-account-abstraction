@@ -6,8 +6,9 @@ import {IAccount} from "account-abstraction/interfaces/IAccount.sol";
 import {PackedUserOperation} from "lib/account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "lib/account-abstraction/contracts/core/Helpers.sol";
 import {IEntryPoint} from "lib/account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract MinimalAccount is IAccount {
+contract MinimalAccount is IAccount, Ownable {
 
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -29,6 +30,24 @@ contract MinimalAccount is IAccount {
             revert MinimalAccount__NotFromEntryPoint();
         }
         _;
+    }
+
+    modifier requireFromEntryPointOrOwner() {
+        if (msg.sender != address(i_entryPoint) && msg.sender != owner()) {
+            revert MinimalAccount__NotFromEntryPointOrOwner();
+        }
+        _;
+    }
+
+    constructor(address entryPoint) Ownable(msg.sender) {
+      i_entryPoint = IEntryPoint(entryPoint);
+    }
+
+      function execute(address dest, uint256 value, bytes calldata functionData) external requireFromEntryPointOrOwner {
+        (bool success, bytes memory result) = dest.call{value: value}(functionData);
+        if (!success) {
+            revert MiniamlAccount__CallFailed(result);
+        }
     }
 
 
